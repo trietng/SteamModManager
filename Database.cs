@@ -1,4 +1,6 @@
 ﻿using Microsoft.Data.Sqlite;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace SteamModManager
 {
@@ -24,11 +26,11 @@ namespace SteamModManager
             ";
             command.ExecuteNonQuery();
         }
-        public static void Update(SteamWorkshopItem[] items) {
+        public static void Add(SteamWorkshopItem[] items) {
             SqliteCommand command = connection.CreateCommand();
             command.CommandText =
             @"
-                INSERT OR REPLACE INTO items(publishedfileid, title, tags, time_updated)
+                INSERT IGNORE INTO items(publishedfileid, title, tags, time_updated)
                 VALUES 
             ";
             for (int i = 0; i < items.Length - 1; ++i)

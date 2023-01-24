@@ -1,7 +1,40 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Text.Json;
+using System.Text.Json.Nodes;
 
 namespace SteamModManager
 {
+    public class SteamWorkshopItem
+    {
+        public UInt64? PublishedFileId { get; set; } = null;
+        public string Title { get; set; } = string.Empty;
+        public List<string> Tags { get; set; } = new();
+        public UInt64? TimeUpdated { get; set; } = null;
+        public SteamWorkshopItem() { }
+        public string ToSqlValue()
+        {
+            return $"({PublishedFileId}, '{Title}', '{JsonSerializer.Serialize(Tags)}', {TimeUpdated})";
+        }
+        public static SteamWorkshopItem[] Parse(JsonNode response)
+        {
+            UInt32 resultCount = response["resultcount"]!.GetValue<UInt32>();
+            var results = new SteamWorkshopItem[resultCount];
+            for (Int32 i = 0; i < resultCount; i++)
+            {
+                JsonNode publishedFileDetails = response["publishedfiledetails"]![i]!;
+                results[i] = new();
+                results[i].PublishedFileId = Convert.ToUInt64(publishedFileDetails["publishedfileid"]!.GetValue<string>());
+                results[i].Title = publishedFileDetails["title"]!.GetValue<string>();
+                var tags = publishedFileDetails["tags"]!.AsArray();
+                
+                foreach (var tag in tags)
+                {
+                    results[i].Tags.Add(tag!["tag"]!.GetValue<string>());
+                }
+                results[i].TimeUpdated = publishedFileDetails["time_updated"]!.GetValue<UInt64>();
+            }
+            return results;
+        }
+    }
     namespace SteamWebAPI {
         public class Request
         {
@@ -59,7 +92,7 @@ namespace SteamModManager
         }
         public static class ISteamRemoteStorage
         {
-            public static async Task<JsonNode> GetPublishedFileDetails(UInt32 itemcount, IEnumerable<UInt64> publishedfileids)
+            public static async Task<JsonNode> GetPublishedFileDetails(IEnumerable<UInt64> publishedfileids)
             {
                 var request = new Request
                 {
@@ -68,6 +101,7 @@ namespace SteamModManager
                     Method = "GetPublishedFileDetails",
                     Version = 1,
                 };
+                var itemcount = publishedfileids.Count();
                 request.Parameters.Add(nameof(itemcount), itemcount.ToString());
                 for (int i = 0; i < itemcount; ++itemcount)
                 {
@@ -75,7 +109,37 @@ namespace SteamModManager
                 }
                 return await request.Send();
             }
+            public static async Task<JsonNode> GetPublishedFileDetails(IEnumerable<string> publishedfileids)
+            {
+                var request = new Request
+                {
+                    HttpMethod = HttpMethod.Post,
+                    WebInterface = "ISteamRemoteStorage",
+                    Method = "GetPublishedFileDetails",
+                    Version = 1,
+                };
+                var itemcount = publishedfileids.Count();
+                request.Parameters.Add(nameof(itemcount), itemcount.ToString());
+                for (int i = 0; i < itemcount; ++itemcount)
+                {
+                    request.Parameters.Add($"publishedfileids[{i}]", publishedfileids.ElementAt(i));
+                }
+                return await request.Send();
+            }
             public static async Task<JsonNode> GetPublishedFileDetails(UInt64 publishedfileid)
+            {
+                var request = new Request
+                {
+                    HttpMethod = HttpMethod.Post,
+                    WebInterface = "ISteamRemoteStorage",
+                    Method = "GetPublishedFileDetails",
+                    Version = 1,
+                };
+                request.Parameters.Add("itemcount", "1");
+                request.Parameters.Add("publishedfileids[0]", publishedfileid.ToString());
+                return await request.Send();
+            }
+            public static async Task<JsonNode> GetPublishedFileDetails(string publishedfileid)
             {
                 var request = new Request
                 {

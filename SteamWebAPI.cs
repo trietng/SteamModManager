@@ -5,14 +5,15 @@ namespace SteamModManager
 {
     public class SteamWorkshopItem
     {
-        public UInt64? PublishedFileId { get; set; } = null;
+        public Int64? PublishedFileId { get; set; } = null;
         public string Title { get; set; } = string.Empty;
-        public List<string> Tags { get; set; } = new();
-        public UInt64? TimeUpdated { get; set; } = null;
+        public string Type { get; set; } = string.Empty;
+        public string AppVersion { get; set; } = string.Empty;
+        public Int64? TimeUpdated { get; set; } = null;
         public SteamWorkshopItem() { }
         public string ToSqlValue()
         {
-            return $"({PublishedFileId}, '{Title}', '{JsonSerializer.Serialize(Tags)}', {TimeUpdated})";
+            return $"({PublishedFileId}, '{Title}', '{Type}', '{AppVersion}', {TimeUpdated})";
         }
         public static SteamWorkshopItem[] Parse(JsonNode response)
         {
@@ -22,17 +23,31 @@ namespace SteamModManager
             {
                 JsonNode publishedFileDetails = response["publishedfiledetails"]![i]!;
                 results[i] = new();
-                results[i].PublishedFileId = Convert.ToUInt64(publishedFileDetails["publishedfileid"]!.GetValue<string>());
-                results[i].Title = publishedFileDetails["title"]!.GetValue<string>();
-                var tags = publishedFileDetails["tags"]!.AsArray();
-                
-                foreach (var tag in tags)
+                results[i].PublishedFileId = Convert.ToInt64(publishedFileDetails["publishedfileid"]!.GetValue<string>());
+                if (publishedFileDetails["title"] is null)
                 {
-                    results[i].Tags.Add(tag!["tag"]!.GetValue<string>());
+                    throw new Exception($"Item {results[i].PublishedFileId} is invalid.");
                 }
-                results[i].TimeUpdated = publishedFileDetails["time_updated"]!.GetValue<UInt64>();
+                results[i].Title = publishedFileDetails["title"]!.GetValue<string>();
+                JsonArray array = publishedFileDetails["tags"]!.AsArray();
+                results[i].Type = array[0]!["tag"]!.GetValue<string>();
+                results[i].AppVersion = IndexOfLatestAppVersion(array);
+                results[i].TimeUpdated = publishedFileDetails["time_updated"]!.GetValue<Int64>();
             }
             return results;
+        }
+        private static string IndexOfLatestAppVersion(JsonArray array)
+        {
+            string latest = array[1]!["tag"]!.GetValue<string>();
+            for (int i = 2; i < array.Count; ++i)
+            {
+                string tag = array[1]!["tag"]!.GetValue<string>();
+                if (string.Compare(tag, latest, StringComparison.OrdinalIgnoreCase) == 1)
+                {
+                   latest = tag;
+                }
+            }
+            return latest;
         }
     }
     namespace SteamWebAPI {
@@ -92,7 +107,7 @@ namespace SteamModManager
         }
         public static class ISteamRemoteStorage
         {
-            public static async Task<JsonNode> GetPublishedFileDetails(IEnumerable<UInt64> publishedfileids)
+            public static async Task<JsonNode> GetPublishedFileDetails(IEnumerable<Int64> publishedfileids)
             {
                 var request = new Request
                 {
@@ -103,7 +118,7 @@ namespace SteamModManager
                 };
                 var itemcount = publishedfileids.Count();
                 request.Parameters.Add(nameof(itemcount), itemcount.ToString());
-                for (int i = 0; i < itemcount; ++itemcount)
+                for (int i = 0; i < itemcount; ++i)
                 {
                     request.Parameters.Add($"publishedfileids[{i}]", publishedfileids.ElementAt(i).ToString());
                 }
@@ -120,13 +135,13 @@ namespace SteamModManager
                 };
                 var itemcount = publishedfileids.Count();
                 request.Parameters.Add(nameof(itemcount), itemcount.ToString());
-                for (int i = 0; i < itemcount; ++itemcount)
+                for (int i = 0; i < itemcount; ++i)
                 {
                     request.Parameters.Add($"publishedfileids[{i}]", publishedfileids.ElementAt(i));
                 }
                 return await request.Send();
             }
-            public static async Task<JsonNode> GetPublishedFileDetails(UInt64 publishedfileid)
+            public static async Task<JsonNode> GetPublishedFileDetails(Int64 publishedfileid)
             {
                 var request = new Request
                 {

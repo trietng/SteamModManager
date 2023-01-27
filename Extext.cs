@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection.Metadata;
 using System.Text;
 using System.Threading.Tasks;
+using static System.Collections.Specialized.BitVector32;
 
 namespace Extext
 {
@@ -21,6 +22,18 @@ namespace Extext
                 Value = string.Empty;
                 Comment = string.Empty;
             }
+            public IniProperty(string key, string value)
+            { 
+                Key = key;
+                Value = value;
+                Comment = string.Empty;
+            }
+            public IniProperty(string key, string value, string comment)
+            {
+                Key = key;
+                Value = value;
+                Comment = comment;
+            }
         }
         public class IniSection : IEnumerable<IniProperty>
         {
@@ -29,6 +42,11 @@ namespace Extext
             public IniSection()
             {
                 Name = string.Empty;
+                properties = new();
+            }
+            public IniSection(string name)
+            {
+                Name = name;
                 properties = new();
             }
             public IniProperty this[string key]
@@ -156,10 +174,6 @@ namespace Extext
                                     Value = propertyFields[1],
                                     Comment = (lineSections.Length < 2) ? string.Empty : lineSections[1]
                                 };
-                                //if (property.Value.StartsWith('\"') && property.Value.EndsWith('\"'))
-                                //{
-                                //    property.Value.Substring(1, property.Value.Length - 1);
-                                //}
                                 section.Add(property);
                             }
                             document.Add(section);

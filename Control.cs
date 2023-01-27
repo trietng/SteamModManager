@@ -6,46 +6,108 @@ using System.Text.Json.Nodes;
 using System.IO;
 using System.Xml.Serialization;
 using Extext.Ini;
+using Microsoft.Data.Sqlite;
+using static SteamModManager.Control;
 
 namespace SteamModManager
 {
+    public static class ConsoleFormat
+    {
+        public static readonly string horizontalBarInfo =
+        $"+{new string('-', 10)}+{new string('-', 40)}+{new string('-', 11)}+{new string('-', 3)}+{new string('-', 10)}+";
+        public static readonly string horizontalBarUpdate =
+        $"+{new string('-', 10)}+{new string('-', 38)}+{new string('-', 16)}+{new string('-', 16)}+";
+        public static readonly string headerInfo =
+        $"{horizontalBarInfo}\n|{"ID",-10}|{"Title",-40}|{"Type",-11}|{"AV",-3}|{"Updated on",-10}|\n{horizontalBarInfo}";
+        public static readonly string headerUpdate =
+        $"{horizontalBarUpdate}\n|{"ID",-10}|{"Title",-38}|{"Current", -16}|{"New",-16}|\n{horizontalBarUpdate}";
+    }
     public static class Control
     {
+        internal class Configuration
+        {
+            public static readonly string version = "1.0";
+            public string Database { get; set; }
+            public string InstallDirectory { get; set; }
+            public string SteamCMD { get; set; }
+            public string SteamAppID { get; set; }
+            public UInt32 Port { get; set; }
+            public bool HttpListenerStatus { get; set; }
+            public bool AutoUpdate { get; set; }
+            public bool IntegrityCheck { get; set; }
+            public Configuration()
+            {
+                Database = "database";
+                InstallDirectory = string.Empty;
+                SteamCMD = "steamcmd/steamcmd.exe";
+                Port = 1234;
+                HttpListenerStatus = false;
+                SteamAppID = string.Empty;
+                AutoUpdate = false;
+                IntegrityCheck = false;
+            }
+            public void Set(IniDocument document)
+            {
+                Database = document["path"]["sql"].Value;
+                InstallDirectory = document["path"]["install_dir"].Value;
+                SteamCMD = document["path"]["steamcmd"].Value;
+                Port = Convert.ToUInt32(document["network"]["port"].Value);
+                HttpListenerStatus = Convert.ToBoolean(document["network"]["http_listener_status"].Value);
+                SteamAppID = document["game"]["steam_app_id"].Value;
+                AutoUpdate = Convert.ToBoolean(document["game"]["auto_update"].Value);
+                IntegrityCheck = Convert.ToBoolean(document["game"]["integrity_check"].Value);
+            }
+            public void Export(string pathConfig = "config.ini")
+            {
+                File.WriteAllText(pathConfig, ToString());
+            }
+            public override string ToString()
+            {
+                IniDocument document = new()
+                {
+                    new IniSection("steam_mod_manager")
+                    {
+                        new IniProperty("config_version", version)
+                    },
+                    new IniSection("path")
+                    {
+                        new IniProperty("sql", Database),
+                        new IniProperty("install_dir", InstallDirectory),
+                        new IniProperty("steamcmd", SteamCMD)
+                    },
+                    new IniSection("network")
+                    {
+                        new IniProperty("port", Port.ToString()),
+                        new IniProperty("http_listener_status", HttpListenerStatus.ToString().ToLower())
+                    },
+                    new IniSection("game")
+                    {
+                        new IniProperty("steam_app_id", SteamAppID),
+                        new IniProperty("auto_update", AutoUpdate.ToString().ToLower()),
+                        new IniProperty("integrity_check", AutoUpdate.ToString().ToLower())
+                    }
+                };
+                return IniSerializer.Serialize(document);
+            }
+        }
         private static readonly string pathConfig = "config.ini";
-        private static class Configuration
+        private static readonly Configuration configuration = new();
+        private static void CreateDefaultConfiguration()
         {
-            public static class Path
+            Console.WriteLine("Enter target Steam App ID: ");
+            string? input = Console.ReadLine();
+            if (input == null)
             {
-                public static string sql = "items.db";
-                public static string destination = string.Empty;
-                public static string steamcmd = "C:/steamcmd/steamcmd.exe";
+                Environment.Exit(0);
             }
-            public static class Network
-            {
-                public static UInt32 port = 1234;
-                public static bool httpListenerStatus = false;
-            }
-            public static void Set(IniDocument document)
-            {
-                Path.sql = document["path"]["sql"].Value;
-                Path.destination = document["path"]["destination"].Value;
-                Path.steamcmd = document["path"]["steamcmd"].Value;
-                Network.port = Convert.ToUInt32(document["network"]["port"].Value);
-                Network.httpListenerStatus = Convert.ToBoolean(document["network"]["http_listener_status"].Value);
-            }
+            configuration.SteamCMD = input;
+            SteamCMD.SteamAppID = input;
+            Console.Clear();
+            configuration.Export();
         }
-        
-
-        public static class Script
+        public static void LoadConfiguration(bool reload = false)
         {
-            public static void Generate()
-            {
-                
-            }
-        }
-        public static void LoadConfiguration()
-        {
-            string textInput = "";
+            string textInput;
             try
             {
                 textInput = File.ReadAllText(pathConfig);
@@ -53,6 +115,7 @@ namespace SteamModManager
             catch (FileNotFoundException)
             {
                 Console.WriteLine($"File \"{pathConfig}\" not found. Using default config.");
+                CreateDefaultConfiguration();
                 return;
             }
             IniDocument document = IniSerializer.Deserialize(textInput);
@@ -63,20 +126,317 @@ namespace SteamModManager
             catch (KeyNotFoundException)
             {
                 Console.WriteLine($"File \"{pathConfig}\" is not valid. Using default config.");
+                CreateDefaultConfiguration();
                 return;
             }
-            Configuration.Set(document);
+            configuration.Set(document);
+            SteamCMD.PathExcutable = configuration.SteamCMD;
+            if ((configuration.InstallDirectory == string.Empty) ||
+                (configuration.InstallDirectory == ".") ||
+                new string[] { "./", "\\." }.Any(configuration.InstallDirectory.Contains))
+            {
+                configuration.InstallDirectory = "./";
+                SteamCMD.PathInstallDirectory = Directory.GetCurrentDirectory();
+            }
+            else if (
+                (configuration.InstallDirectory == "..") ||
+                new string[] { "../", "\\.." }.Any(configuration.InstallDirectory.Contains))
+            {
+                configuration.InstallDirectory = "../";
+                SteamCMD.PathInstallDirectory = Directory.GetParent(Directory.GetCurrentDirectory())!.ToString();
+            }
+            else
+            {
+                SteamCMD.PathInstallDirectory = configuration.InstallDirectory;
+            }
+            SteamCMD.SteamAppID = configuration.SteamAppID;
+            if (reload == true)
+            {
+                Database.Close();
+            }
+            Database.Create(configuration.Database, configuration.SteamAppID);
         }
-        public static void Add(string[] steamWorkshopIds)
+        public static void AutoUpdate()
         {
-            Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(steamWorkshopIds);
+            if (configuration.AutoUpdate)
+            {
+                Console.WriteLine("Auto-update process started...");
+                Update();
+            }
+        }
+        public static void IntegrityCheck(bool forced = false)
+        {
+            if ((configuration.IntegrityCheck) || (forced))
+            {
+                Console.Write("Checking file integrity... ");
+                var items = Database.SelectForUpdate();
+                List<string> list = new();
+                foreach (var item in items)
+                {
+                    string pathItem = $"{configuration.InstallDirectory}/{item.Item1}";
+                    if (!Directory.Exists(pathItem))
+                    {
+                        list.Add(item.Item1.ToString());
+                    }
+                }
+                if (list.Count > 0)
+                {
+                    Console.WriteLine("FAILED");
+                    Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.ToArray());
+                    task.Wait();
+                    SteamWorkshopItem[] steamWorkshopItems;
+                    try
+                    {
+                        steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        return;
+                    }
+                    Console.WriteLine(ConsoleFormat.headerUpdate);
+                    foreach (var item in steamWorkshopItems)
+                    {
+                        string title = item.Title;
+                        if (title.Length > 38)
+                        {
+                            title = title[..38];
+                        }
+                        string dateNew = DateTimeOffset.FromUnixTimeSeconds((Int64)item.TimeUpdated!).ToString("yyyy/MM/dd HH:mm");
+                        Console.WriteLine($"|{item.PublishedFileId,-10}|{title,-38}|{"null",-16}|{dateNew,-16}|");
+                    }
+                    Console.WriteLine(ConsoleFormat.horizontalBarUpdate);
+                    Console.Write("Re-download the missing files? (y/n): ");
+                    string? answer = Console.ReadLine();
+                    if (answer is null)
+                    {
+                        Console.WriteLine("Input error");
+                        Environment.Exit(0);
+                    }
+                    answer = answer.Trim();
+                    if ((answer == "yes") || (answer == "y"))
+                    {
+                        SteamCMD.Download(steamWorkshopItems);
+                        Database.Replace(steamWorkshopItems);
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("OK");
+                }
+            }
+        }
+        public static void Add(string[] steamWorkshopItemIds)
+        {
+            Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(steamWorkshopItemIds);
             task.Wait();
-            var steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
-            
+            SteamWorkshopItem[] steamWorkshopItems;
+            try
+            {
+                steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+            SteamCMD.Download(steamWorkshopItems);
+            Database.Insert(steamWorkshopItems);
         }
-        public static void Remove(string[] steamWorkshopIds) 
+        public static void Remove(string[] steamWorkshopItemIds) 
         {
-            
+            foreach (var item in steamWorkshopItemIds)
+            {
+                string pathItem = $"{configuration.InstallDirectory}/{item}";
+                if (Directory.Exists(pathItem))
+                {
+                    Directory.Delete(pathItem, true);
+                    Console.WriteLine($"Item {item} removed");
+                }
+            }
+            var deletedRows = Database.Delete(steamWorkshopItemIds);
+            Console.WriteLine($"Number of input ids: {steamWorkshopItemIds.Length}");
+            Console.WriteLine($"Number of removed ids: {deletedRows}"); 
+            if (steamWorkshopItemIds.Length > deletedRows)
+            {
+                Console.WriteLine("There are some ids that doesn't exist in the database.");
+            }
+        }
+        public static void Help()
+        {
+            Console.WriteLine(
+                "help\t\tprint help" +
+                "\nadd [item]\tadd and download item(s)" +
+                "\nremove [item]\tremove item(s)" +
+                "\nclear\t\tclear screen" +
+                "\nupdate\t\tupdate all items" +
+                "\nupdate [item]\tupdate specific item(s)" +
+                "\ninfo\t\tlist all available items in memory" +
+                "\ninfo [item]\tsearch specific items" +
+                "\nbackup\t\tcreate zip archive of all available items" +
+                "\nlisten\t\ttoggle HTTP listener" +
+                "\nconfig\t\tshow configuration" +
+                "\nreconfig\treload configuration" +
+                "\nlist\t\talias of info" +
+                "\ndelete [item]\talias of remove [item]" +
+                "\nsearch [item]\talias of info [item]" +
+                "\nfind [item]\talias of info [item]" +
+                "\nquit\t\tquit program"
+            );
+        }
+        public static void Backup()
+        {
+            throw new NotImplementedException();
+        }
+        public static void Clear()
+        {
+            Console.Clear();
+        }
+        public static void Info()
+        {
+            var list = Database.Select();
+            foreach (var item in list) 
+            { 
+                Console.WriteLine(item);
+            }
+        }
+        public static void Info(string[] itemIDs)
+        {
+            var list = Database.Select(itemIDs);
+            foreach (var item in list)
+            {
+                Console.WriteLine(item);
+            }
+        }
+        public static void Update(bool forced = false)
+        {
+            var list = Database.SelectForUpdate();
+            Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.Select(_ => _.Item1).ToArray());
+            task.Wait();
+            SteamWorkshopItem[] steamWorkshopItems;
+            try
+            {
+                steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+            var listUpdate = new List<Tuple<SteamWorkshopItem, Int64>>();
+            for (int i = 0; i < list.Count; ++i)
+            {
+                if (list[i].Item2 < steamWorkshopItems[i].TimeUpdated)
+                {
+                    listUpdate.Add(new (steamWorkshopItems[i], list[i].Item2));
+                }
+            }
+            if (listUpdate.Count == 0)
+            {
+                Console.WriteLine("No update found.");
+            }
+            else
+            {
+                Console.WriteLine($"Found {listUpdate.Count} updates.");
+                Console.WriteLine(ConsoleFormat.headerUpdate);
+                foreach (var item in listUpdate)
+                {
+                    string title = item.Item1.Title;
+                    if (title.Length > 38)
+                    {
+                        title = title[..38];
+                    }
+                    string dateCurrent = DateTimeOffset.FromUnixTimeSeconds(item.Item2).ToString("yyyy/MM/dd HH:mm");
+                    string dateNew = DateTimeOffset.FromUnixTimeSeconds((Int64)item.Item1.TimeUpdated!).ToString("yyyy/MM/dd HH:mm");
+                    Console.WriteLine($"|{item.Item1.PublishedFileId,-10}|{title,-38}|{dateCurrent, -16}|{dateNew,-16}|");
+                }
+                Console.WriteLine(ConsoleFormat.horizontalBarUpdate);
+                if (!forced)
+                {
+                    Console.Write("Proceed with the update? (y/n): ");
+                    string? answer = Console.ReadLine()!.Trim();
+                    if ((answer == "yes") || (answer == "y"))
+                    {
+                        goto Commit;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                Commit:
+                SteamCMD.Download(steamWorkshopItems);
+                Database.Replace(steamWorkshopItems);
+            }
+        }
+        public static void Update(string[] itemIDs, bool forced = false)
+        {
+            var list = Database.SelectForUpdate(itemIDs);
+            Task<JsonNode>? task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.Select(_ => _.Item1).ToArray());
+            task.Wait();
+            SteamWorkshopItem[] steamWorkshopItems;
+            try
+            {
+                steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine(ex.Message);
+                return;
+            }
+            var listUpdate = new List<Tuple<SteamWorkshopItem, Int64>>();
+            for (int i = 0; i < list.Count; ++i)
+            {
+                if (list[i].Item2 < steamWorkshopItems[i].TimeUpdated)
+                {
+                    listUpdate.Add(new(steamWorkshopItems[i], list[i].Item2));
+                }
+            }
+            if (listUpdate.Count == 0)
+            {
+                Console.WriteLine("No update found.");
+            }
+            else
+            {
+                Console.WriteLine($"Found {listUpdate.Count} updates.");
+                Console.WriteLine(ConsoleFormat.headerUpdate);
+                foreach (var item in listUpdate)
+                {
+                    string title = item.Item1.Title;
+                    if (title.Length > 38)
+                    {
+                        title = title[..38];
+                    }
+                    string dateCurrent = DateTimeOffset.FromUnixTimeSeconds(item.Item2).ToString("yyyy/MM/dd HH:mm");
+                    string dateNew = DateTimeOffset.FromUnixTimeSeconds((Int64)item.Item1.TimeUpdated!).ToString("yyyy/MM/dd HH:mm");
+                    Console.WriteLine($"|{item.Item1.PublishedFileId,-10}|{title,-38}|{dateCurrent,-16}|{dateNew,-16}|");
+                }
+                Console.WriteLine(ConsoleFormat.horizontalBarUpdate);
+                if (!forced)
+                {
+                    Console.Write("Proceed with the update? (y/n): ");
+                    string? answer = Console.ReadLine()!.Trim();
+                    if ((answer == "yes") || (answer == "y"))
+                    {
+                        goto Commit;
+                    }
+                    else
+                    {
+                        return;
+                    }
+                }
+                Commit:
+                SteamCMD.Download(steamWorkshopItems);
+                Database.Replace(steamWorkshopItems);
+            }
+        }
+        public static void Listen()
+        {
+            throw new NotImplementedException();
+        }
+        public static void ShowConfig()
+        {
+            Console.WriteLine(configuration.ToString());
         }
     }
 }

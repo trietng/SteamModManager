@@ -1,44 +1,18 @@
 ﻿using SteamModManager;
-using Extext.Ini;
+using System.Runtime.InteropServices;
 
-if (args.Length > 1)
+if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
 {
-    string[] items = new ArraySegment<string>(args, 2, args.Length - 3).ToArray();
-    switch (args[1])
-    {
-        case "-a": // add items
-            Control.Add(items);
-            break;
-        case "-b": // backup
-
-            break;
-        case "-c": // clear directory
-
-            break;
-        case "-h": // help
-
-            break;
-        case "-l": // list all mod
-
-            break;
-        case "-o": // open http listener
-
-            break;
-        case "-s": // search item
-
-            break;
-        case "-r": // remove items
-            Control.Remove(items);
-            break;
-        case "-u": // update items, default = all 
-
-            break;
-
-        default:
-            break;
-    }
+    SteamCMD.EnsureWindowsExecutableExistence();
+}
+Control.LoadConfiguration();
+if (args.Length > 0)
+{
+    Menu.Simple(args);
 }
 else
 {
-    Control.LoadConfiguration();
+    Control.IntegrityCheck();
+    Control.AutoUpdate();
+    Menu.Default();
 }

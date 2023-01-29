@@ -1,13 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
+﻿using System.Net;
 using System.Text.Json.Nodes;
-using System.IO;
-using System.Xml.Serialization;
 using Extext.Ini;
-using Microsoft.Data.Sqlite;
-using static SteamModManager.Control;
 
 namespace SteamModManager
 {
@@ -31,7 +24,6 @@ namespace SteamModManager
             public string InstallDirectory { get; set; }
             public string SteamCMD { get; set; }
             public string SteamAppID { get; set; }
-            public UInt32 Port { get; set; }
             public bool HttpListenerStatus { get; set; }
             public bool AutoUpdate { get; set; }
             public bool IntegrityCheck { get; set; }
@@ -40,7 +32,6 @@ namespace SteamModManager
                 Database = "database";
                 InstallDirectory = string.Empty;
                 SteamCMD = "steamcmd/steamcmd.exe";
-                Port = 1234;
                 HttpListenerStatus = false;
                 SteamAppID = string.Empty;
                 AutoUpdate = false;
@@ -51,7 +42,6 @@ namespace SteamModManager
                 Database = document["path"]["sql"].Value;
                 InstallDirectory = document["path"]["install_dir"].Value;
                 SteamCMD = document["path"]["steamcmd"].Value;
-                Port = Convert.ToUInt32(document["network"]["port"].Value);
                 HttpListenerStatus = Convert.ToBoolean(document["network"]["http_listener_status"].Value);
                 SteamAppID = document["game"]["steam_app_id"].Value;
                 AutoUpdate = Convert.ToBoolean(document["game"]["auto_update"].Value);
@@ -77,7 +67,6 @@ namespace SteamModManager
                     },
                     new IniSection("network")
                     {
-                        new IniProperty("port", Port.ToString()),
                         new IniProperty("http_listener_status", HttpListenerStatus.ToString().ToLower())
                     },
                     new IniSection("game")
@@ -274,7 +263,7 @@ namespace SteamModManager
                 "\ninfo\t\tlist all available items in memory" +
                 "\ninfo [item]\tsearch specific items" +
                 "\nbackup\t\tcreate zip archive of all available items" +
-                "\nlisten\t\ttoggle HTTP listener" +
+                "\nlisten\t\ttoggle HTTP listener on port 27060" +
                 "\nconfig\t\tshow configuration" +
                 "\nreconfig\treload configuration" +
                 "\nlist\t\talias of info" +
@@ -294,7 +283,7 @@ namespace SteamModManager
         }
         public static void Info()
         {
-            var list = Database.Select();
+            var list = Database.SelectForInfo();
             foreach (var item in list) 
             { 
                 Console.WriteLine(item);
@@ -302,7 +291,7 @@ namespace SteamModManager
         }
         public static void Info(string[] itemIDs)
         {
-            var list = Database.Select(itemIDs);
+            var list = Database.SelectForInfo(itemIDs);
             foreach (var item in list)
             {
                 Console.WriteLine(item);
@@ -357,14 +346,14 @@ namespace SteamModManager
                     string? answer = Console.ReadLine()!.Trim();
                     if ((answer == "yes") || (answer == "y"))
                     {
-                        goto Commit;
+                        goto CommitUpdate;
                     }
                     else
                     {
                         return;
                     }
                 }
-                Commit:
+                CommitUpdate:
                 SteamCMD.Download(steamWorkshopItems);
                 Database.Replace(steamWorkshopItems);
             }
@@ -418,21 +407,33 @@ namespace SteamModManager
                     string? answer = Console.ReadLine()!.Trim();
                     if ((answer == "yes") || (answer == "y"))
                     {
-                        goto Commit;
+                        goto CommitUpdate;
                     }
                     else
                     {
                         return;
                     }
                 }
-                Commit:
+                CommitUpdate:
                 SteamCMD.Download(steamWorkshopItems);
                 Database.Replace(steamWorkshopItems);
             }
         }
-        public static void Listen()
+        public static void Listen(bool forced = false)
         {
-            throw new NotImplementedException();
+            if ((configuration.HttpListenerStatus) || (forced))
+            {
+                var server = new Server();
+                server.Start();
+                while (true)
+                {
+                    if (Console.KeyAvailable && (Console.ReadKey(true).Key == ConsoleKey.Enter))
+                    {
+                        break;
+                    }
+                }
+                server.Stop();
+            }
         }
         public static void ShowConfig()
         {

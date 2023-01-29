@@ -14,5 +14,6 @@ else
 {
     Control.IntegrityCheck();
     Control.AutoUpdate();
+    Control.Listen();
     Menu.Default();
 }

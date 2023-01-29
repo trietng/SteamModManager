@@ -48,6 +48,20 @@ namespace SteamModManager
         public static List<string> Select()
         {
             SqliteCommand command = connection.CreateCommand();
+            command.CommandText = $"SELECT publishedfileid FROM steam_app_{SteamAppID};";
+            List<string> list = new();
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    list.Add(reader.GetString(0));
+                }
+            }
+            return list;
+        }
+        public static List<string> SelectForInfo()
+        {
+            SqliteCommand command = connection.CreateCommand();
             command.CommandText = $"SELECT * FROM steam_app_{SteamAppID};";
             List<string> list = new()
             {
@@ -71,7 +85,7 @@ namespace SteamModManager
             list.Add(ConsoleFormat.horizontalBarInfo);
             return list;
         }
-        public static List<string> Select(string[] itemIDs)
+        public static List<string> SelectForInfo(string[] itemIDs)
         {
             SqliteCommand command = connection.CreateCommand();
             command.CommandText =
@@ -107,6 +121,10 @@ namespace SteamModManager
         }
         public static int Delete(string[] itemIDs)
         {
+            if (itemIDs.Length == 0)
+            {
+                return 0;
+            }
             SqliteCommand command = connection.CreateCommand();
             command.CommandText =
             $@"
@@ -191,6 +209,21 @@ namespace SteamModManager
             }
             command.CommandText += (items.Last().ToSqlValue() + ";");
             command.ExecuteNonQuery();
+        }
+
+        public static bool Contains(string item)
+        {
+            SqliteCommand command = connection.CreateCommand();
+            command.CommandText = $"SELECT publishedfileid FROM steam_app_{SteamAppID} WHERE publishedfileid = {item};";
+            bool result = false;
+            using (var reader = command.ExecuteReader())
+            {
+                while (!result && reader.Read())
+                {
+                    result = true;
+                }
+            }
+            return result;
         }
     }
 }

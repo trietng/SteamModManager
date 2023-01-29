@@ -13,7 +13,11 @@ namespace SteamModManager
         {
             if (command == null)
             {
-                throw new ArgumentNullException(nameof(command));
+                return;
+            }
+            if (command.Length == 0)
+            {
+                return;
             }
             string[] args = command.Split(' ', StringSplitOptions.RemoveEmptyEntries);
             if (args.Length > 1)
@@ -88,7 +92,7 @@ namespace SteamModManager
                         Control.Info();
                         break;
                     case "listen":
-                        Control.Listen();
+                        Control.Listen(true);
                         break;
                     case "config":
                         Control.ShowConfig();
@@ -101,6 +105,8 @@ namespace SteamModManager
                         break;
                     case "integrity":
                         Control.IntegrityCheck(true);
+                        break;
+                    case "quit":
                         break;
                     default:
                         Console.WriteLine("Invalid command.");
@@ -166,10 +172,10 @@ namespace SteamModManager
                         Control.Info();
                         break;
                     case "-ic": // integrity check
-                        Control.IntegrityCheck();
+                        Control.IntegrityCheck(true);
                         break;
                     case "-l": // open http listener
-                        Control.Listen();
+                        Control.Listen(true);
                         break;
                     case "-u": // update all items
                         Control.Update();

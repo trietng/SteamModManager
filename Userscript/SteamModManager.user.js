@@ -15,6 +15,7 @@
     // Consts
     const url = 'http://127.0.0.1:27060';
     const id = document.getElementById('PublishedFileSubscribe').elements['id'].value;
+    const title = document.getElementsByClassName('workshopItemTitle')[0].innerText;
     // Query selectors
     var subscribeItemButton = document.getElementById("SubscribeItemBtn");
     var subscribeItemOptionAdd = document.getElementById('SubscribeItemOptionAdd');
@@ -32,11 +33,10 @@
             "Content-Type": "application/json",
             Accept: "application/json",
         },
-        body: JSON.stringify({'action':'query','id':id}),
+        body: JSON.stringify({'action':'query','id':id,'title':title}),
     })
     .then(response => response.text())
     .then((response) => {
-        console.log(response);
         if (response === 'true') {
             subscribeItemButton.classList.add('toggled');
             subscribeItemOptionAdd.className = 'subscribeOption add';
@@ -53,7 +53,7 @@
                     "Content-Type": "application/json",
                     Accept: "application/json",
                 },
-                body: JSON.stringify({'action':'add','id':id}),
+                body: JSON.stringify({'action':'add','id':id,'title':title}),
             })
             .then((response) => {
                 subscribeItemButton.classList.add('toggled');
@@ -70,7 +70,7 @@
                     "Content-Type": "application/json",
                     Accept: "application/json",
                 },
-                body: JSON.stringify({'action':'remove','id':id}),
+                body: JSON.stringify({'action':'remove','id':id,'title':title}),
             })
             .then((response) => {
                 subscribeItemButton.classList.remove('toggled');

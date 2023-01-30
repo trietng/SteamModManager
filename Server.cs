@@ -82,23 +82,24 @@ namespace SteamModManager
                 {
                     var actionType = json["action"]!.GetValue<string>();
                     var itemId = json["id"]!.GetValue<string>();
+                    var itemTitle = json["title"]!.GetValue<string>();
                     switch (actionType)
                     {
                         case "query":
                             responseString = Contains(itemId).ToString().ToLower();
-                            Console.WriteLine($"Item {itemId} existence status: {responseString}");
+                            // Console.WriteLine($"Item \"{itemTitle}\" existence status: {responseString}");
                             break;
                         case "add":
                             if (Add(itemId))
                             {
-                                responseString = $"Item {itemId} added";
+                                responseString = $"Item \"{itemTitle}\" added";
                                 Console.WriteLine(responseString);
                             }
                             break;
                         case "remove":
                             if (Remove(itemId))
                             {
-                                responseString = $"Item {itemId} removed";
+                                responseString = $"Item \"{itemTitle}\" removed";
                                 Console.WriteLine(responseString);
                             }
                             break;

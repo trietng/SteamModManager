@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Steam Mod Manager
 // @namespace    http://tampermonkey.net/
-// @version      0.1
+// @version      0.2
 // @description  Mod Downloader Extension
 // @author       trietng
 // @match        https://steamcommunity.com/sharedfiles/filedetails/?id=*
@@ -20,6 +20,7 @@
     var subscribeItemButton = document.getElementById("SubscribeItemBtn");
     var subscribeItemOptionAdd = document.getElementById('SubscribeItemOptionAdd');
     var subscribeItemOptionSubscribed = document.getElementById('SubscribeItemOptionSubscribed');
+    var subscribeIcon = document.getElementsByClassName('subscribeIcon')[0];
     var actionWait = document.getElementById('action_wait');
     // HTML injections
     subscribeItemButton.removeAttribute('onclick');
@@ -27,22 +28,28 @@
     subscribeItemOptionSubscribed.innerHTML = 'In database';
     subscribeItemOptionSubscribed.nextSibling.nextSibling.innerHTML = 'Remove';
     // Check if item is already in database
-    fetch(url, {
-        method: 'POST',
-        header: {
-            "Content-Type": "application/json",
-            Accept: "application/json",
-        },
-        body: JSON.stringify({'action':'query','id':id,'title':title}),
-    })
-    .then(response => response.text())
-    .then((response) => {
-        if (response === 'true') {
-            subscribeItemButton.classList.add('toggled');
-            subscribeItemOptionAdd.className = 'subscribeOption add';
-            subscribeItemOptionSubscribed.className = 'subscribeOption subscribed selected';
-        }
-    }).catch(error => console.log(error));
+    // need to be done synchronously
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', url, false);
+    xhr.setRequestHeader("Content-Type", "application/json");
+    try {
+        xhr.send(JSON.stringify({'action':'query','id':id,'title':title}));
+    }
+    catch (error) {
+
+    }
+    if (xhr.status === 200) {
+        subscribeItemButton.classList.add('toggled');
+        subscribeItemOptionAdd.className = 'subscribeOption add';
+        subscribeItemOptionSubscribed.className = 'subscribeOption subscribed selected';
+    }
+    else {
+        subscribeItemButton.classList.remove('btn_green_white_innerfade');
+        subscribeItemButton.classList.add('btnv6_white_transparent');
+        subscribeIcon.setAttribute('style', 'background-image: none !important;');
+        subscribeItemOptionAdd.innerHTML = 'Disabled';
+        return;
+    }
     // Button click event
     subscribeItemButton.addEventListener('click', function() {
         if (!subscribeItemButton.classList.contains('toggled')) {
@@ -60,7 +67,7 @@
                 subscribeItemOptionAdd.className = 'subscribeOption add';
                 subscribeItemOptionSubscribed.className = 'subscribeOption subscribed selected';
                 actionWait.style.display = 'none';
-             }).catch(error => console.log(error));
+            }).catch(error => console.log(error));
         }
         else {
             actionWait.style.display = 'block';

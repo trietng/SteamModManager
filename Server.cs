@@ -23,13 +23,32 @@ namespace SteamModManager
         public void Stop(bool cancel = false)
         {
             listener.Stop();
-            if (cancel == false)
+            if (!cancel)
             {
+                var totalRequests = ItemsToAdd.Count + ItemsToRemove.Count;
+                if (totalRequests == 0)
+                {
+                    return;
+                }
                 Console.WriteLine("Executing requests...");
-                Console.WriteLine("Removing items...");
-                Control.Remove(ItemsToRemove.ToArray());
-                Console.WriteLine("Adding items...");
-                Control.Add(ItemsToAdd.ToArray());
+                if (ItemsToRemove.Count > 0)
+                {
+                    Console.WriteLine("Removing items...");
+                    Control.Remove(ItemsToRemove.ToArray());
+                }
+                else
+                {
+                    Console.WriteLine("No remove request found.");
+                }
+                if (ItemsToAdd.Count > 0)
+                {
+                    Console.WriteLine("Adding items...");
+                    Control.Add(ItemsToAdd.ToArray());
+                }
+                else
+                {
+                    Console.WriteLine("No add request found.");
+                }
             }
         }
         private static JsonNode ReadAsJson(HttpListenerRequest request)
@@ -72,6 +91,7 @@ namespace SteamModManager
         {
             HttpListenerResponse response = context.Response;
             response.AddHeader("Access-Control-Allow-Origin", "https://steamcommunity.com");
+            response.AppendHeader("Access-Control-Allow-Headers", "Content-Type");
             response.StatusCode = (int)HttpStatusCode.OK;
             response.ContentType = "text/plain";
             string responseString = string.Empty;

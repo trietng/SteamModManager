@@ -1,10 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-
-namespace SteamModManager
+﻿namespace SteamModManager
 {
     public static class Menu
     {
@@ -73,14 +67,7 @@ namespace SteamModManager
                         Control.Update();
                         break;
                     case "backup":
-                        try
-                        {
-                            Control.Backup();
-                        }
-                        catch (NotImplementedException)
-                        {
-                            Console.WriteLine("Feature not implemented.");
-                        }
+                        Control.Backup();
                         break;
                     case "clear":
                         Control.Clear();
@@ -156,14 +143,7 @@ namespace SteamModManager
                 switch (args[0])
                 {
                     case "-b": // backup
-                        try
-                        {
-                            Control.Backup();
-                        }
-                        catch (NotImplementedException)
-                        {
-                            Console.WriteLine("Feature not implemented.");
-                        }
+                        Control.Backup();
                         break;
                     case "-c": // clear directory
                         Control.Clear();

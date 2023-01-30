@@ -1,12 +1,6 @@
-﻿using SteamModManager.SteamWebAPI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Net;
+﻿using System.Net;
 using System.Text;
-using System.Text.Json;
 using System.Text.Json.Nodes;
-using System.Threading.Tasks;
 
 namespace SteamModManager
 {
@@ -18,21 +12,25 @@ namespace SteamModManager
         public HashSet<string> ItemsToRemove { get; private set; } = new();
         public void Start()
         {
-            Console.WriteLine("Listening...");
-            Console.WriteLine("Press Enter to execute the requests");
+            Console.WriteLine($"Listening on port {Port}...");
+            Console.WriteLine("Press Esc to quit the listening process.");
+            Console.WriteLine("Press Enter to execute the requests.");
             listener.Prefixes.Clear();
             listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
             listener.Start();
             listener.BeginGetContext(new AsyncCallback(ListenerCallback), listener);
         }
-        public void Stop()
+        public void Stop(bool cancel = false)
         {
             listener.Stop();
-            Console.WriteLine("Executing requests...");
-            Console.WriteLine("Removing items...");
-            Control.Remove(ItemsToRemove.ToArray());
-            Console.WriteLine("Adding items...");
-            Control.Add(ItemsToAdd.ToArray());
+            if (cancel == false)
+            {
+                Console.WriteLine("Executing requests...");
+                Console.WriteLine("Removing items...");
+                Control.Remove(ItemsToRemove.ToArray());
+                Console.WriteLine("Adding items...");
+                Control.Add(ItemsToAdd.ToArray());
+            }
         }
         private static JsonNode ReadAsJson(HttpListenerRequest request)
         {

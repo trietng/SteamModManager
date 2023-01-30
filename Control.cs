@@ -1,6 +1,7 @@
-﻿using System.Net;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 using Extext.Ini;
+using System.IO.Compression;
+using Extext.Compression;
 
 namespace SteamModManager
 {
@@ -27,6 +28,7 @@ namespace SteamModManager
             public bool HttpListenerStatus { get; set; }
             public bool AutoUpdate { get; set; }
             public bool IntegrityCheck { get; set; }
+            public bool Login { get; set; }
             public Configuration()
             {
                 Database = "database";
@@ -36,6 +38,7 @@ namespace SteamModManager
                 SteamAppID = string.Empty;
                 AutoUpdate = false;
                 IntegrityCheck = false;
+                Login = false;
             }
             public void Set(IniDocument document)
             {
@@ -46,6 +49,7 @@ namespace SteamModManager
                 SteamAppID = document["game"]["steam_app_id"].Value;
                 AutoUpdate = Convert.ToBoolean(document["game"]["auto_update"].Value);
                 IntegrityCheck = Convert.ToBoolean(document["game"]["integrity_check"].Value);
+                Login = Convert.ToBoolean(document["game"]["login"].Value);
             }
             public void Export(string pathConfig = "config.ini")
             {
@@ -73,17 +77,18 @@ namespace SteamModManager
                     {
                         new IniProperty("steam_app_id", SteamAppID),
                         new IniProperty("auto_update", AutoUpdate.ToString().ToLower()),
-                        new IniProperty("integrity_check", AutoUpdate.ToString().ToLower())
+                        new IniProperty("integrity_check", IntegrityCheck.ToString().ToLower()),
+                        new IniProperty("login", Login.ToString().ToLower())
                     }
                 };
                 return IniSerializer.Serialize(document);
             }
         }
-        private static readonly string pathConfig = "config.ini";
+        public static string PathConfig { get; } = "config.ini";
         private static readonly Configuration configuration = new();
         private static void CreateDefaultConfiguration()
         {
-            Console.WriteLine("Enter target Steam App ID: ");
+            Console.Write("Enter target Steam App ID: ");
             string? input = Console.ReadLine();
             if (input == null)
             {
@@ -99,11 +104,11 @@ namespace SteamModManager
             string textInput;
             try
             {
-                textInput = File.ReadAllText(pathConfig);
+                textInput = File.ReadAllText(PathConfig);
             }
             catch (FileNotFoundException)
             {
-                Console.WriteLine($"File \"{pathConfig}\" not found. Using default config.");
+                Console.WriteLine($"File \"{PathConfig}\" not found. Using default config.");
                 CreateDefaultConfiguration();
                 return;
             }
@@ -114,7 +119,7 @@ namespace SteamModManager
             }
             catch (KeyNotFoundException)
             {
-                Console.WriteLine($"File \"{pathConfig}\" is not valid. Using default config.");
+                Console.WriteLine($"File \"{PathConfig}\" is not valid. Using default config.");
                 CreateDefaultConfiguration();
                 return;
             }
@@ -139,6 +144,7 @@ namespace SteamModManager
                 SteamCMD.PathInstallDirectory = configuration.InstallDirectory;
             }
             SteamCMD.SteamAppID = configuration.SteamAppID;
+            SteamCMD.LoginStatus = configuration.Login;
             if (reload == true)
             {
                 Database.Close();
@@ -263,7 +269,7 @@ namespace SteamModManager
                 "\ninfo\t\tlist all available items in memory" +
                 "\ninfo [item]\tsearch specific items" +
                 "\nbackup\t\tcreate zip archive of all available items" +
-                "\nlisten\t\ttoggle HTTP listener on port 27060" +
+                "\nlisten\t\topen HTTP listener on port 27060" +
                 "\nconfig\t\tshow configuration" +
                 "\nreconfig\treload configuration" +
                 "\nlist\t\talias of info" +
@@ -275,7 +281,24 @@ namespace SteamModManager
         }
         public static void Backup()
         {
-            throw new NotImplementedException();
+            var list = Database.Select();
+            string now = DateTime.Now.ToString("yyyy-MM-dd-HH-mm-ss");
+            using (FileStream fileStream = File.Open($"{now}.zip", FileMode.Create))
+            {
+                using (ZipArchive zipArchive = new(fileStream, ZipArchiveMode.Create))
+                {
+                    Console.WriteLine("Compressing...");
+                    foreach (var item in list)
+                    {
+                        zipArchive.CreateEntryFromDirectory(item, item, CompressionLevel.Optimal);
+                        Console.WriteLine($"Item {item} added to archive.");
+                    }
+                    Database.Backup(zipArchive);
+                    Console.WriteLine($"Database \"{configuration.Database}\" added to archive");
+                    zipArchive.CreateEntryFromFile(PathConfig, PathConfig);
+                    Console.WriteLine("Config file \"config.ini\" added to archive");
+                }
+            }
         }
         public static void Clear()
         {
@@ -423,18 +446,34 @@ namespace SteamModManager
         {
             if ((configuration.HttpListenerStatus) || (forced))
             {
+                bool escapeKeyPressed = false;
                 var server = new Server();
                 server.Start();
                 while (true)
                 {
-                    if (Console.KeyAvailable && (Console.ReadKey(true).Key == ConsoleKey.Enter))
+                    if (Console.KeyAvailable)
                     {
-                        break;
+                        var key = Console.ReadKey(true).Key;
+                        if (key == ConsoleKey.Enter)
+                        {
+                            break;
+                        }
+                        else if (key == ConsoleKey.Escape)
+                        {
+                            escapeKeyPressed = true;
+                            break;
+                        }
                     }
                 }
-                server.Stop();
+                server.Stop(escapeKeyPressed);
             }
         }
+
+        private static void Console_CancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+        {
+            throw new NotImplementedException();
+        }
+
         public static void ShowConfig()
         {
             Console.WriteLine(configuration.ToString());

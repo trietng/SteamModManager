@@ -1,10 +1,5 @@
-﻿using Microsoft.VisualBasic;
-using System;
-using System.Collections.Generic;
-using System.IO.Compression;
-using System.Linq;
+﻿using System.IO.Compression;
 using System.Text;
-using System.Threading.Tasks;
 
 namespace SteamModManager
 {
@@ -14,10 +9,7 @@ namespace SteamModManager
         private static readonly string urlDownload = "https://steamcdn-a.akamaihd.net/client/installer/steamcmd.zip";
         private static readonly string pathExecutableDefault = "C:/steamcmd/steamcmd.exe";
         private static readonly string pathExcutableZip = ".temp/steamcmd.zip";
-        private static readonly Dictionary<string, bool> loginAnonymousStatus = new()
-        {
-            { "294100", true }
-        };
+        public static bool LoginStatus { get; set; } = false;
         public static string PathExcutable { get; set; } = pathExecutableDefault;
         public static string PathInstallDirectory { get; set; } = string.Empty;
         public static string SteamAppID { get; set; } = string.Empty;
@@ -31,10 +23,6 @@ namespace SteamModManager
             ZipFile.ExtractToDirectory(pathExcutableZip, PathExcutable[..12]);
             Directory.Delete(pathExcutableZip[..5], true);
         }
-        public static bool IsLoginAnonymous()
-        {
-            return loginAnonymousStatus[SteamAppID];
-        }
         public static void EnsureWindowsExecutableExistence()
         {
             while (!File.Exists(PathExcutable))
@@ -46,7 +34,7 @@ namespace SteamModManager
         {
             StringBuilder builder = new();
             builder.Append($" +force_install_dir \"{PathInstallDirectory}\"");
-            if (loginAnonymousStatus[SteamAppID])
+            if (!LoginStatus)
             {
                 builder.Append(" +login anonymous");
             }

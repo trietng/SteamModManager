@@ -1,5 +1,4 @@
-﻿using System.Text.Json;
-using System.Text.Json.Nodes;
+﻿using System.Text.Json.Nodes;
 
 namespace SteamModManager
 {
@@ -41,7 +40,7 @@ namespace SteamModManager
             string latest = array[1]!["tag"]!.GetValue<string>();
             for (int i = 2; i < array.Count; ++i)
             {
-                string tag = array[1]!["tag"]!.GetValue<string>();
+                string tag = array[i]!["tag"]!.GetValue<string>();
                 if (string.Compare(tag, latest, StringComparison.OrdinalIgnoreCase) == 1)
                 {
                    latest = tag;
@@ -50,7 +49,8 @@ namespace SteamModManager
             return latest;
         }
     }
-    namespace SteamWebAPI {
+    namespace SteamWebAPI
+    {
         public class Request
         {
             private static readonly HttpClient httpClient = new();

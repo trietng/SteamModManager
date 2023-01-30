@@ -1,20 +1,33 @@
 ﻿using Microsoft.Data.Sqlite;
 using System.Data;
-using System.Text.Json;
-using System.Text.Json.Nodes;
+using System.IO.Compression;
 
 namespace SteamModManager
 {
     public static class Database
     {
-        private static readonly SqliteConnection connection = new();
+        private static SqliteConnection connection = new();
+        public static string DataSource { get; private set; } = "database"; 
         public static string SteamAppID { get; private set; } = string.Empty;
         public static void Close()
         {
             connection.Close();
         }
+        public static void Open()
+        {
+            connection.Open();
+        }
+        public static void Backup(ZipArchive zipArchive)
+        {
+            var info = Directory.CreateDirectory(".temp");
+            string destPath = Path.Combine(info.Name, DataSource);
+            File.Copy(DataSource, destPath, true);
+            zipArchive.CreateEntryFromFile(destPath, DataSource);
+            info.Delete(true);
+        }
         public static void Create(string dataSource, string steamAppID)
         {
+            DataSource = dataSource;
             SteamAppID = steamAppID;
             connection.ConnectionString = $"Data Source={dataSource};";
             connection.Open();
@@ -35,7 +48,7 @@ namespace SteamModManager
             SqliteCommand command = connection.CreateCommand();
             command.CommandText =
             $@"
-                INSERT OR IGNORE INTO steam_app_{SteamAppID} (publishedfileid, title, type, app_version, time_updated)
+                INSERT OR REPLACED INTO steam_app_{SteamAppID} (publishedfileid, title, type, app_version, time_updated)
                 VALUES 
             ";
             for (int i = 0; i < items.Length - 1; ++i)

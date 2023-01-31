@@ -39,9 +39,11 @@
 
     }
     if (xhr.status === 200) {
-        subscribeItemButton.classList.add('toggled');
-        subscribeItemOptionAdd.className = 'subscribeOption add';
-        subscribeItemOptionSubscribed.className = 'subscribeOption subscribed selected';
+        if (xhr.responseText === 'true') {
+            subscribeItemButton.classList.add('toggled');
+            subscribeItemOptionAdd.className = 'subscribeOption add';
+            subscribeItemOptionSubscribed.className = 'subscribeOption subscribed selected';
+        }
     }
     else {
         subscribeItemButton.classList.remove('btn_green_white_innerfade');

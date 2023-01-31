@@ -28,7 +28,7 @@ namespace SteamModManager
                 {
                     throw new Exception($"Item {results[i].PublishedFileId} is invalid.");
                 }
-                results[i].Title = publishedFileDetails["title"]!.GetValue<string>();
+                results[i].Title = publishedFileDetails["title"]!.GetValue<string>().Replace("'", "");
                 JsonArray array = publishedFileDetails["tags"]!.AsArray();
                 results[i].Type = array[0]!["tag"]!.GetValue<string>();
                 results[i].AppVersion = IndexOfLatestAppVersion(array);

@@ -48,7 +48,7 @@ namespace SteamModManager
             SqliteCommand command = connection.CreateCommand();
             command.CommandText =
             $@"
-                INSERT OR REPLACED INTO steam_app_{SteamAppID} (publishedfileid, title, type, app_version, time_updated)
+                INSERT OR REPLACE INTO steam_app_{SteamAppID} (publishedfileid, title, type, app_version, time_updated)
                 VALUES 
             ";
             for (int i = 0; i < items.Length - 1; ++i)

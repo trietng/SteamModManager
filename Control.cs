@@ -163,20 +163,22 @@ namespace SteamModManager
         {
             if ((configuration.IntegrityCheck) || (forced))
             {
-                Console.Write("Checking file integrity... ");
-                var items = Database.SelectForUpdate();
+                Console.WriteLine("Checking file integrity... ");
+                var items = Database.Select();
                 List<string> list = new();
+                Console.Write("Checking if all database entries exist... ");
                 foreach (var item in items)
                 {
-                    string pathItem = $"{configuration.InstallDirectory}/{item.Item1}";
+                    string pathItem = $"{configuration.InstallDirectory}/{item}";
                     if (!Directory.Exists(pathItem))
                     {
-                        list.Add(item.Item1.ToString());
+                        list.Add(item);
                     }
                 }
                 if (list.Count > 0)
                 {
                     Console.WriteLine("FAILED");
+                    Console.WriteLine($"{list.Count} items missing.");
                     Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.ToArray());
                     task.Wait();
                     SteamWorkshopItem[] steamWorkshopItems;
@@ -214,6 +216,41 @@ namespace SteamModManager
                         SteamCMD.Download(steamWorkshopItems);
                         Database.Replace(steamWorkshopItems);
                     }
+                }
+                else
+                {
+                    Console.WriteLine("OK");
+                }
+                Console.Write("Checking if there is any unrecorded mod... ");
+                list.Clear();
+                var unrecordedItems = Directory.GetDirectories(configuration.InstallDirectory).Except(items).Select(_ => Path.GetFileName(_)).ToList();
+                foreach (var item in unrecordedItems)
+                {
+                    if (Int64.TryParse(Path.GetFileName(item), out _))
+                    {
+                        if (File.Exists(Path.Combine(configuration.InstallDirectory, item, "About", "PublishedFileId.txt")))
+                        {
+                            Console.WriteLine($"Item {item} detected");
+                            list.Add(item);
+                        }
+                    }
+                }
+                if (list.Count > 0)
+                {
+                    Console.WriteLine($"{list.Count} items unrecorded.");
+                    Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.ToArray());
+                    task.Wait();
+                    SteamWorkshopItem[] steamWorkshopItems;
+                    try
+                    {
+                        steamWorkshopItems = SteamWorkshopItem.Parse(task.Result);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex.Message);
+                        return;
+                    }
+                    Database.Insert(steamWorkshopItems);
                 }
                 else
                 {

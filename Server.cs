@@ -148,12 +148,15 @@ namespace SteamModManager
                             task.Wait();
                             var result = SteamWorkshopCollection.Parse(task.Result)[0];
                             List<string> list = Database.Contains(result);
-                            for (int i = 0; i < list.Count - 1; ++i)
+                            if (list.Count > 0)
                             {
-                                builder.Append($"\"{list[i]}\", ");
+                                for (int i = 0; i < list.Count - 1; ++i)
+                                {
+                                    builder.Append($"\"{list[i]}\", ");
+                                }
+                                builder.Append($"\"{list[list.Count - 1]}\"]");
+                                responseString = builder.ToString();
                             }
-                            builder.Append($"\"{list[list.Count - 1]}\"]");
-                            responseString = builder.ToString();
                         }
                         else if (actionType == "add")
                         {
@@ -164,7 +167,6 @@ namespace SteamModManager
                             var result = SteamWorkshopCollection.Parse(task.Result)[0];
                             Console.WriteLine($"Collection \"{itemTitle}\" added");
                             Console.Write($"Collection has {result.Count} items: ");
-
                             for (int i = 0; i < result.Count - 1; ++i)
                             {
                                 Console.Write(result[i] + " ");

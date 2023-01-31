@@ -237,6 +237,7 @@ namespace SteamModManager
                 }
                 if (list.Count > 0)
                 {
+                    Console.WriteLine("FAILED");
                     Console.WriteLine($"{list.Count} items unrecorded.");
                     Task<JsonNode> task = SteamWebAPI.ISteamRemoteStorage.GetPublishedFileDetails(list.ToArray());
                     task.Wait();

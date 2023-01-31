@@ -238,5 +238,29 @@ namespace SteamModManager
             }
             return result;
         }
+        public static List<string> Contains(SteamWorkshopCollection itemIds)
+        {
+            SqliteCommand command = connection.CreateCommand();
+            List<string> result = new();
+            command.CommandText =
+            @$"
+                SELECT publishedfileid
+                FROM steam_app_{SteamAppID}
+                WHERE publishedfileid in (
+            ";
+            for (int i = 0; i < itemIds.Count - 1; ++i)
+            {
+                command.CommandText += (itemIds[i] + ',');
+            }
+            command.CommandText += (itemIds.Last() + ");");
+            using (var reader = command.ExecuteReader())
+            {
+                while (reader.Read())
+                {
+                    result.Add(reader.GetString(0));
+                }
+            }
+            return result;
+        }
     }
 }

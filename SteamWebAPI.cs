@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Nodes;
+﻿using System.Collections;
+using System.Text.Json.Nodes;
 
 namespace SteamModManager
 {
@@ -47,6 +48,41 @@ namespace SteamModManager
                 }
             }
             return latest;
+        }
+    }
+    public class SteamWorkshopCollection : IEnumerable<string>
+    {
+        public Int64? CollectionId { get; set; } = null;
+        private List<string> itemIds;
+        SteamWorkshopCollection()
+        {
+            itemIds = new();
+        }
+        public IEnumerator<string> GetEnumerator()
+        {
+            return itemIds.GetEnumerator();
+        }
+        IEnumerator IEnumerable.GetEnumerator()
+        {
+            return GetEnumerator();
+        }
+        public int Count => itemIds.Count;
+        public string this[int index] => itemIds[index];
+        public static SteamWorkshopCollection[] Parse(JsonNode response)
+        {
+            UInt32 resultCount = response["resultcount"]!.GetValue<UInt32>();
+            var results = new SteamWorkshopCollection[resultCount];
+            for (Int32 i = 0; i < resultCount; i++)
+            {
+                JsonNode collectionDetails = response["collectiondetails"]![i]!;
+                results[i] = new();
+                results[i].CollectionId = Convert.ToInt64(collectionDetails["publishedfileid"]!.GetValue<string>());
+                results[i].itemIds = 
+                    collectionDetails["children"]!
+                    .AsArray()
+                    .Select(_ => _!["publishedfileid"]!.GetValue<string>()).ToList();
+            }
+            return results;
         }
     }
     namespace SteamWebAPI
@@ -164,6 +200,36 @@ namespace SteamModManager
                     Version = 1,
                 };
                 request.Parameters.Add("itemcount", "1");
+                request.Parameters.Add("publishedfileids[0]", publishedfileid.ToString());
+                return await request.Send();
+            }
+            public static async Task<JsonNode> GetCollectionDetails(IEnumerable<string> publishedfileids)
+            {
+                var request = new Request
+                {
+                    HttpMethod = HttpMethod.Post,
+                    WebInterface = "ISteamRemoteStorage",
+                    Method = "GetCollectionDetails",
+                    Version = 1,
+                };
+                var collectioncount = publishedfileids.Count();
+                request.Parameters.Add(nameof(collectioncount), collectioncount.ToString());
+                for (int i = 0; i < collectioncount; ++i)
+                {
+                    request.Parameters.Add($"publishedfileids[{i}]", publishedfileids.ElementAt(i));
+                }
+                return await request.Send();
+            }
+            public static async Task<JsonNode> GetCollectionDetails(string publishedfileid)
+            {
+                var request = new Request
+                {
+                    HttpMethod = HttpMethod.Post,
+                    WebInterface = "ISteamRemoteStorage",
+                    Method = "GetCollectionDetails",
+                    Version = 1,
+                };
+                request.Parameters.Add("collectioncount", "1");
                 request.Parameters.Add("publishedfileids[0]", publishedfileid.ToString());
                 return await request.Send();
             }
